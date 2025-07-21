@@ -1,0 +1,13 @@
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+*.log
+.vscode/
+
+# Database specific files (PostgreSQL)
+*.db
+*.sqlite3
+
+# Sensitive files (if any, be careful!)
+.env
