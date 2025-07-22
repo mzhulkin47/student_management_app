@@ -1,6 +1,84 @@
 import time
 import json 
+import psycopg2 # Импортируем библиотеку для работы с PostGreSQL
+from psycopg2 import Error  # Импортируем класс Error для работы с ошибками
 
+
+# --- Данные для подключения к базе данных PostgreSQL ---
+DB_HOST = 'localhost'            # адрес сервера базы данных (мой ноутбук)
+DB_NAME = 'student_db'           # Имя базы данных, которую мы создали
+DB_USER = 'student_user'         # Имя пользователя, которого мы создали
+DB_PASSWORD = 'rvvdkdku2010'     # Пароль для польователя student_user
+DB_PORT = '5432'                 # Порт, на котором слушает PostgreSQL
+# --------------------------------------------------------------------------
+
+
+def get_db_connection():
+    """
+    Устанавливает и возвращает соединение с базой данных PostgreSQL.
+    В случае ошибки подключения выводит сообщение и возвращает None.
+    """
+    connection = None
+    try:
+        # Пытаемся установить соединение с БД, используя импортированную библиотеку "psycopg2"
+        connection = psycopg2.connect(
+            host=DB_HOST,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            port=DB_PORT
+        )
+        # Если соединение успешно установлено, то выводим об этом сообщение
+        print('Соединение с базой данных PostgreSQL успешно установлено!')
+        return connection # возвращает объект соединения
+    except Error as e:
+        # Если произошла ошибка, выводим ее
+        print(f"Произошла ошибка: {e}.")
+        return None # В случае ошибки возвращает None
+    
+    
+def create_students_table():
+    """
+    Создает таблицу 'students' в базе данных, если она еще не существует.
+    """
+    connection = get_db_connection()  # Получаем объект соединения с БД
+    if connection: # Проверяем, удалось ли установить соединение
+        cursor = connection.cursor()  # Создаем объект курсора
+        try:
+            # SQL-запрос для создания таблицы students
+            # IF NOT EXISTS: предотвращает ошибку, если таблица уже существует
+            # student_id: SERIAL PRIMARY KEY - автоматически увеличивающийся уникальный ID
+            # VARCHAR(50): строка до 50 символов
+            # NOT NULL: поле не может быть пустым
+            # INTEGER: целое число
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS students (
+                id SERIAL PRIMARY KEY,
+                last_name VARCHAR(50) NOT NULL,
+                first_name VARCHAR(50) NOT NULL,
+                patronymic VARCHAR(50),
+                age INTEGER,
+                course INTEGER
+            );
+            """
+            cursor.execute(create_table_query) # Выполняет SQL-запрос через курсор
+            connection.commit() # Подтверждаем изменения в базе данных (сохраняем)
+            print("Таблица 'students' успешно создана или уже существует.")
+        
+        except Error as e:
+            print(f"Ошибка при создании таблицы 'students': {e}")
+            connection.rollback()  # Откатываем изменения, если произошла ошибка
+        
+        finally:
+            if cursor:
+                cursor.close()  # Всегда закрываем курсор
+            if connection:
+                connection.close()  # Всегда закрываем соединение с БД
+                print('Соединение с БД закрыто.')
+                
+    
+    
+     
 
 # ==================== Определение класса Student ====================
 # Мы определяем новый КЛАСС с именем 'Student'.
@@ -123,6 +201,7 @@ def add_student(students_list):
         if not student_age_str:
             print('Возраст не может быть пустой строкой')
             continue
+        
         # валидация на число
         if not student_age_str.isdigit():
             print('Возраст надо вводить числом')
@@ -159,10 +238,47 @@ def add_student(students_list):
         student_course
     )
     
-    # добаляю словарь на нового студента в список
-    students_list.append(new_student)
-    # вывод подтверждения о добавлении студента
-    print(f'\nСтудент **{new_student.last_name} {new_student.first_name} {new_student.patronymic}** добавлен в список студентов.')
+    # ----- код для сохранения в БД -----
+    connection = get_db_connection()   # Получаю соиденение с БД
+    if connection: # Если соединение установленно
+        cursor = connection.cursor() # Создаю курсор
+        try:
+            # SQL-запрос для вставки данных. Используем %s для параметров,
+            # чтобы избежать SQL-инъекций и корректно передавать данные.
+            insert_query = """
+            INSERT INTO students (last_name, first_name, patronymic, age, course)
+            VALUES (%s, %s, %s, %s, %s) RETURNING id;
+            """
+            # выполняю запрос, передавая данные ввиде кортежа
+            cursor.execute(insert_query, (
+                new_student.last_name,
+                new_student.first_name,
+                new_student.patronymic,
+                new_student.age,
+                new_student.course
+            ))
+            # Получаем ID только что вставленной записи (если нужно, для подтверждения)
+            student_id = cursor.fetchone()[0]
+            connection.commit()  # Подтверждаю изменения в БД
+            
+    
+            # добаляю словарь на нового студента в список
+            # students_list.append(new_student)
+            # вывод подтверждения о добавлении студента
+            print(f'\nСтудент **{new_student.last_name} {new_student.first_name} {new_student.patronymic}**  (ID: {student_id}) добавлен в список студентов.')
+        except Error as e:
+            print(f"Произошла ошибка при добавлении студента в БД: {e}")
+            connection.rollback() # Откатываю изменения, если произошла ошибка.
+        # Закрываю курсор и закрываю соединение
+        finally:
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+                print("Соелинение с БД закрыто.")
+    else:
+        print("Не удалось добавить студента: нет соединения с БД.")
+    # ------ тут код для сохранения студента в БД заканчивается ------    
     
  
 # определение функции вывода списка студентов
@@ -469,5 +585,8 @@ def main():
             
             
 if __name__ == '__main__':
-    main() 
+    # Этот блок кода будет выполнен только тогда, когда файл запущен напрямую (не импортирован как модуль)
+    create_students_table()
+    main()
+    
     
