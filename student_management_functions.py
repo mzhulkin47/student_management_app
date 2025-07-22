@@ -2,14 +2,18 @@ import time
 import json 
 import psycopg2 # Импортируем библиотеку для работы с PostGreSQL
 from psycopg2 import Error  # Импортируем класс Error для работы с ошибками
+from dotenv import load_dotenv # 
+import os
+
+load_dotenv() # читает данные из ".env"
 
 
 # --- Данные для подключения к базе данных PostgreSQL ---
-DB_HOST = 'localhost'            # адрес сервера базы данных (мой ноутбук)
-DB_NAME = 'student_db'           # Имя базы данных, которую мы создали
-DB_USER = 'student_user'         # Имя пользователя, которого мы создали
-DB_PASSWORD = 'rvvdkdku2010'     # Пароль для польователя student_user
-DB_PORT = '5432'                 # Порт, на котором слушает PostgreSQL
+DB_HOST = os.getenv('DB_HOST')            
+DB_NAME = os.getenv('DB_NAME')           
+DB_USER = os.getenv('DB_USER')         
+DB_PASSWORD = os.getenv('DB_PASSWORD')     
+DB_PORT = os.getenv('DB_PORT')
 # --------------------------------------------------------------------------
 
 
