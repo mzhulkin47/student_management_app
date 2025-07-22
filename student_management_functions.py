@@ -286,30 +286,80 @@ def add_student(students_list):
     
  
 # определение функции вывода списка студентов
-def view_students(students_list):
+def view_students(students_list): # "students_list" пока оставляю, но потом удалю(после полного перехода в PostgreSQL)
     """
-    Отображает список всех студентов, находящихся в системе.
-
-    Аргументы:
-        students_list (list): Список студентов для отображения.
+    Отображает список всех студентов, находящихся в системе, получая их из базы данных PostgreSQL.
     """
     print('\n<<<<<<<<<<<<<<<<<<<<< СПИСОК СТУДЕНТОВ >>>>>>>>>>>>>>>>>>>>>')
     time.sleep(0.2)
     print()
-    if not students_list:
-        print('\nСписок студентов пуст.')
-    else:
-        for i, student_data in enumerate(students_list):
-            time.sleep(0.2)
-            print(    
-                f'{i + 1}. ФИО: {student_data.last_name.ljust(15, ' ')}'
-                f'{student_data.first_name.ljust(15, ' ')}'
-                f'{student_data.patronymic.ljust(15, ' ')} '
-                f'| Возраст: {student_data.age} '
-                f'| Курс: {student_data.course}'
-            )
-    print('\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
-    print()
+    
+    connection = None # Инициализируем переменную connection как None
+    cursor = None     # Инициализируем переменную cursor как None
+    
+    
+    # Получаю объект соединения с БД
+    connection = get_db_connection()
+        
+    # Проверяю, удалось ли установить соединение
+    if connection:
+        try:
+            # Создаю объект курсора, который позволит выполнять SQL-запросы
+            cursor = connection.cursor()
+            
+            # SQL-запрос для выбора всех студентов.
+            # Я явно указываю порядок столбцов: сначала id, затем last_name (фамилия), 
+            # потом first_name (имя), patronymic (отчество) и так далее.
+            # ORDER BY last_name, first_name - это сортировка: сначала по фамилии, потом по имени.
+            select_query = """
+            SELECT id, last_name, first_name, patronymic, age, course FROM students ORDER BY last_name, first_name;
+            """
+            
+            # Выполняю SQL-запрос
+            cursor.execute(select_query)
+            
+            # Получаю все строки результата запроса
+            # Каждая строка будет кортежем (tuple)
+            students_from_db = cursor.fetchall()
+            
+            # Проверяю, есть ли студенты в БД
+            if not students_from_db:
+                print('\nСписок студентов в базе данных пуст.')
+                
+            else:
+                # Вывожу заголовки таблицы, выравнивая их для красивого вывода
+                print(f"{'ID'.ljust(4)} | {'ФАМИЛИЯ'.ljust(15)} | {'ИМЯ'.ljust(15)} | {'ОТЧЕСТВО'.ljust(15)} | {'ВОЗРАСТ'.ljust(7)} | {'КУРС'.ljust(5)}")
+                print('-' * 76) # Для красивого отделения заголовков от значений
+                
+                # Прохожу по каждой строке кортежа, полученого из БД
+                for row in students_from_db:
+                    # Распаковываю кортеж в отдельные переменные
+                    # Порядок столбцов тут долджен быть строго такое же как в "select_query"
+                    student_id, last_name, first_name, patronymic, age, course = row
+                    
+                    time.sleep(0.2) # Для плавного и красивого вывода не экран
+                    # Вывожу строку с данными на каждого студента(все, как в заголовке)
+                    # Пишу впереди "str()", чтобы применить "ljust()"
+                    print(f"{str(student_id).ljust(4)} | {last_name.ljust(15)} | {first_name.ljust(15)} | {patronymic.ljust(15)} | {str(age).ljust(7)} | {str(course).ljust(5)}")
+    
+        # Обработка ошибок, если произойдут
+        except Error as e:
+            print(f'Произошла ошибка при получени данных: {e}')
+        
+        # Блок "finally" исполнится в любом случае, даже если будет ошибка при получении данных
+        # Это очень важный блок для управления ресурсами
+        finally:
+            if cursor:
+                cursor.close()  # Закрываю курсор
+            if connection:
+                connection.close()  # Закрываю соединение с БД
+                print('\nСоединение с БД закрыто.')
+            
+    else: # Если get_db_connection() вернул None (т.е. соединение не было установлено)
+        print("Не удалось отобразить студентов: нет соединения с базой данных.")
+
+print('\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+print()
     
     
 # определение функции "найти студента" def find_student()
