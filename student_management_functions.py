@@ -429,81 +429,140 @@ def delete_student(students_list):
     
     
 # определение функции "изменить студента"  def edit_student()
-def edit_student(students_list):
+def edit_student(students_list):  # Пока оставляю "student_list", потом удалю вообще
+    """
+    Редактирует информацию о существующем студенте в базе данных PostgreSQL.
+    """
     print('\n*************** РЕДАКТИРОВАНИЕ СТУДЕНТА ***************')
     time.sleep(0.5)
     print()
-    if not students_list:
-        print('Список студентов пуст. Изменить в пустом списке ниего нельзя.')
-        return
+    # Показываю список студентов, чтобы пользователь видел ID студента
+    # Чтобы пользователь мог по ID выбрать студента для редактирования
     view_students(students_list)
-    print('\nИспользуйте *ID* студента из списка выше для его редактирования.') 
-    while True:
-        student_id_str = input('\nВведите из списка выше *ID* студента, которого хотите редактировать (или 0 для отмены)').strip()
-        if not student_id_str.isdigit():
-            print('\nОшибка: *ID* студента должно быть числом.')
-            continue
-        student_id = int(student_id_str)
-        if student_id == 0:
-            print('Редактирование отменено.')
-            return
-        index_to_edit = student_id - 1
-        # проверка, что ввели коректный ID
-        if 0 <= index_to_edit < len(students_list):
-            student_to_edit = students_list[index_to_edit]
-            print(f"\nРедактирование студента: **{student_to_edit.last_name} {student_to_edit.first_name} {student_to_edit.patronymic}**")
-            print('Оставте поле пустым, если не хотите его менять.')
+    
+    # Переменные для соединения и курсора, инициализирую их как  None
+    # Это хорошая практика, чтобы убедиться, что они всегда будут определенны,
+    # даже если что-то пойдет не так до их создания
+    connection = None
+    cursor = None
+    
+    try:
+        # Запрашиваю ID студента и провожу проверку правильности ввода
+        student_id = int(input('Введите "ID" студента для редактирования: '))
+    except ValueError:
+        print('Некорректный ID. Пожалуйста, введите число.')
+        time.sleep(0.5)
+        return # Возвращаюсь в главное меню, не продолжая функцию
+    
+    # Пытаюсь установить соединение с БД
+    connection = get_db_connection()
+    if connection:  # Проверяю, удалось ли соединение
+        try:
+            cursor = connection.cursor()  # Создаю курсов для выполнения SQL-запросов
+            # Проверяю, есть ли студент с таким ID в БД
+            # Это ВАЖНО, чтобы не пытаться обновить несуществующую запись
+            check_query = "SELECT id FROM students WHERE id = %s;"
+            cursor.execute(check_query, (student_id,)) # Выполняю запрос, %s будет заменен на student_id
+            existing_student = cursor.fetchone() # Возвращает одну строку или None, если ничего не найдено
             
-            # Теперь запрашиваем новые данные, используя существующие функции и логику
-            # Запрашиваем новую фамилию, имя, отчество
-            new_last_name = input(f'Новая фамилия (текущая фамилия: {student_to_edit.last_name}): ').strip().title()
-            if new_last_name: # если пользователь что-то ввел, проверяем и обновляем
-                if validate_name(new_last_name, 'фамилия'): # переипользуем функцию validate_name()
-                    student_to_edit.last_name = new_last_name
-                else:
-                    print('Фамилия неизменена из-за неверного формата ввода.')
-            new_first_name = input(f"Новое имя (текущее имя **{student_to_edit.first_name}**): ").strip().title()
-            if new_first_name:
-                if validate_name(new_first_name, 'имя'):
-                    student_to_edit.first_name = new_first_name
-                else:
-                    print('Имя неизменено из-за неверного формата ввода.')
-            new_patronymic = input(f"Новое отчество (текущее отчество **{student_to_edit.patronymic}**): ").strip().title()
-            if new_patronymic:
-                if validate_name(new_patronymic, 'отчество'):
-                    student_to_edit.patronymic = new_patronymic
-                else:
-                    print('Отчество неизменено из-за неверного формата ввода.')
-            while True:
-                new_age_str = input(f"Новый возраст (текущий возраст **{student_to_edit.age}** (16-65 или пусто для пропуска)): ").strip()
-                if not new_age_str:
-                    break
-                if not new_age_str.isdigit():
-                    print('Ошибка: Возраст должен быть числом.')
-                    continue
-                new_age = int(new_age_str)
-                if not 16 <= new_age <= 65:
-                    print('В нашем ВУЗе можно учиться с 16 до 65 лет (включительно).')
-                    continue
-                student_to_edit.age = new_age
-            while True:
-                new_course_str = input(f"Новый курс (текущий курс **{student_to_edit.course}** (1-6 или пусто для пропуска)): ").strip()
-                if not new_course_str:
-                    break
-                if not new_course_str.isdigit():
-                    print('Ошибка: Курс должен быть числом.')
-                    continue
-                new_course = int(new_course_str)
-                if not 1 <= new_course <= 6:
-                    print('В нашем ВУЗе курсы с 1-го по 6 (включительно)')
-                    continue
-                student_to_edit.course = new_course
-                break
-            print(f"\nИнформация о студенте **{student_to_edit.first_name} {student_to_edit.last_name} {student_to_edit.patronymic}** успешно обновлена.")
-            break
-        else:
-            print(f"Ошибка: Студент с ID **{student_id}** не найден. Попробуйте еще раз.")
-    print('********************************************************************')
+            # Проверяю, есть ли студент с таким ID
+            if not existing_student:
+                print(f"Студент с ID: {student_id} не найден.")
+                time.sleep(0.5)
+                return
+            # Если студент найдет, запрашиваю новые поля у пользователя
+            # Обязательно удаляю пробелы в начале и конце строки
+            # Если пользователь не хочет менять поле, то он оставляет его пустым
+            print(f"\nРедактирование студента с ID {student_id}.")
+            new_last_name = input('Введите новую фамилию студента (оставте поле пустым, чтобы не менять): ').strip()
+            new_first_name = input('Введите новое имя студента (оставте поле пустым, чтобы не менять): ').strip()
+            new_patronymic = input('Введите новое отчество студента (оставте поле пустым, чтобы не менять): ').strip()
+            
+            new_age_str = input('Введите новый возраст студента (оставте поле пустым, чтобы не менять): ').strip()
+            new_course_str = input('Введите новый курс студента (оставте поле пустым, чтобы не менять): ').strip()
+            
+            # Динамически строю SQL-запрос UPDATE
+            # В запрос буду добавлять только те поля, которые хочу поменять
+            update_parts = []  # Список для частей SQL-запроса (например: "last_name = %s")
+            update_values = []  # Список для частей значений, которые будут вставлены вместо "%s"
+            
+            if new_last_name:  # Если пользователь ввел новую фамилию (строка не пустая)
+                update_parts.append('last_name = %s')  # Добавляю часть запроса
+                update_values.append(new_last_name)  # Добавляю значение
+                
+            if new_first_name: # Как для фамилии
+                update_parts.append('first_name = %s')
+                update_values.append(new_first_name) 
+                
+            if new_patronymic: # Как для фамилии
+                update_parts.append('patronymic = %s')
+                update_values.append(new_patronymic)
+                
+            if new_age_str:
+                # Проверка, что пользователь ввел возраст цифрами
+                try:
+                    new_age = int(new_age_str) # Как для фамилии
+                    update_parts.append('age = %s')
+                    update_values.append(new_age)
+                except ValueError:
+                    # При неправильном вводе программа игнорирует изменение возраста
+                    print('Некоректный формат ввода. Возраст не будет изменен.')
+                    
+            if new_course_str:
+                # Проверка, что пользователь ввел курс цифрами
+                try:
+                    new_course = int(new_course_str)
+                    update_parts.append('course = %s')
+                    update_values.append(new_course)
+                except ValueError:
+                    # При неправильном вводе программа игнорирует изменение курса
+                    print('Некорректный формат ввода. Курс студента не будет изменен.')
+                    
+            # если список пуст, значит пользователь ничего не захотел менять
+            if not update_parts:
+                print('Никаких изменений не введено.')
+                time.sleep(0.5)
+                return # Возвращаюсь из функции
+            
+            # Собираю финальный SQL-запрос UPDATE
+            # ', '.join(update_parts) объединяет все части из списка update_parts через запятую.
+            # Например: если изменили только имя и возраст, будет "first_name = %s", "age = %s"
+            update_query = f"UPDATE students SET {', '.join(update_parts)} WHERE id = %s;"
+            
+            # Добавляю ID студента в конец списка значений,
+            # Потому что он используется в значении WHERE
+            update_values.append(student_id)
+            
+            # Выполняю SQL-запрос на обновление
+            # update_values должен быть кортежем, поэтому преобразую в кортеж
+            cursor.execute(update_query, tuple(update_values))
+            
+            # Подтверждаю изменения в БД
+            # commit() окончательно сохраняет изменения
+            connection.commit()
+            print(f"Информация о студенте с ID {student_id} успешно обновлена.")
+            
+        except Error as e:
+            # Обработка любых других ошибок БД
+            print(f"Ошибка при обновлении данных студента: {e}")
+            # Все изменения откатываются, это гарантирует, что БД останется в согласованном состоянии
+            connection.rollback()
+            
+        finally:
+            # Это обязательный шаг, независимо от успеха программы или ошибки
+            # Этот шаг важен для эффективного использования БД
+            if cursor:
+                cursor.close()
+            
+            if connection:
+                connection.close()
+                print('Соединение с БД закрыто.')
+    
+    # Если get_db_connection() вернул None (соединение с БД не установлено)
+    else:
+        print("Не удалось отредактировать студента: нет соединения с БД.")
+        
+    print("\n><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><")
     print()
 
 
