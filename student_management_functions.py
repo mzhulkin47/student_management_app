@@ -365,38 +365,84 @@ print()
 # определение функции "найти студента" def find_student()
 def find_student(students_list):
     """
-    Ищет студентов по фамилии и выводит информацию о найденных студентах.
-
-    Аргументы:
-        students_list (list): Список студентов, в котором осуществляется поиск.
+    Ищет и отображает информацию о студенте(ах) в базе данных PostgreSQL.
+    Поиск может быть выполнен по ID или по части фамилии/имени/отчества.
     """
-    print('\n------------------- ПОИСК СТУДЕНТА ПО ФАМИЛИИ --------------------')
-    time.sleep(0.2)
-    search_last_name = input('Введите начало фамилии для поиска: ').strip().title()
+    print("\n========== Поиск студента ==========")
+    time.sleep(0.5)
     print()
-    if not search_last_name:
-        print('Ошибка: фамилия не может быть пустой.')
-        return
-    found_students = []
-    for i, student_data in enumerate(students_list):
-        if student_data.last_name.startswith(search_last_name):
-            found_students.append((i, student_data))
-    if not found_students:
-        print(f'Студент(ы) с фамилией **{search_last_name}* не найден(ы)')
-    else:
-        print(f'Найдены следующие студенты с фамилией *{search_last_name}*:')
-        time.sleep(0.4)
-        print()
-        for i, (original_index, student_data) in enumerate(found_students):
-            print(
-                f'{i + 1}. (ID: {original_index + 1}) ФИО: {student_data.last_name.ljust(15, ' ')}'
-                f'{student_data.first_name.ljust(15, ' ')}'
-                f'{student_data.patronymic.ljust(15, ' ')} '
-                f'| Возраст: {student_data.age} '
-                f'| Курс: {student_data.course}'
-            )
-    print('\n--------------------------------------------------')
     
+    connection = None # Инициализация переменных для соединения и курсора
+    cursor = None
+    
+    try:
+        # Предлагаю пользователю выбрать тип поиска
+        search_type = input("Искать по ID(1) или по фамилии/имени/отчеству(2)? Введите 1 или 2: ").strip()
+        if search_type == '1':
+            # Поиск по ID
+            try:
+                search_id = int(input("Введите ID студента: "))
+                query = "SELECT id, last_name, first_name, patronymic, age, course FROM students WHERE id = %s;"
+                params = (search_id,)
+            except ValueError:
+                print("Некорректный ID. Введите ID цифрами.")
+                time.sleep(0.5)
+                return
+        elif search_type == '2':
+            # Поиск по фамили/имени/отчеству
+            search_term = input("Введите фамилию, имя или отчество (или часть) для поиска: ").strip()
+            if not search_term:
+                print("Поисковый запрос не может быть пустым.")
+                time.sleep(0.5)
+                return
+            # Используем оператор ILIKE для регистронезависимого поиска по шаблону
+            # %s% означает "содержит эту подстроку"
+            query = """
+            SELECT id, last_name, first_name, patronymic, age, course FROM students 
+            WHERE last_name ILIKE %s OR first_name ILIKE %s OR patronymic ILIKE %s
+            ORDER BY last_name, first_name;
+            """
+            # Добавляем % к поисковому запросу для использования ILIKE
+            params = (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%") 
+        else:
+            print("Некорректный выбор типа поиска. Введите 1 или 2.")
+            time.sleep(0.5)
+            return
+        
+        # Получаю соединение с БД
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            
+            cursor.execute(query, params) # Выполняет запрос с параметрами
+            found_students = cursor.fetchall() # Получаем все найденые строки
+            
+            if not found_students:
+                print('Студенты по вашему запросу не найдены.')
+            else:
+                print('Найденые студенты:')
+                print()
+                print(f"{'ID'.ljust(4)} | {'ФАМИЛИЯ'.ljust(15)} | {'ИМЯ'.ljust(15)} | {'ОТЧЕСТВО'.ljust(15)} | {'ВОЗРАСТ'.ljust(7)} | {'КУРС'.ljust(5)}")
+                print("-" * 80)
+                for row in found_students:
+                    student_id, last_name, first_name, patronymic, age, course = row
+                    time.sleep(0.3)
+                    print(
+                        f"{str(student_id).ljust(4)} | {last_name.ljust(15)} | {first_name.ljust(15)} | {patronymic.ljust(15)} | {str(age).ljust(7)} | {str(course).ljust(5)}"
+                    )
+                    print()
+        else:
+            print('Не удалось произвести поиск. Нет соединения с БД.')
+    except Error as e:
+        print(f"\nОшибка при поиске: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+            print('Соединение с БД закрытою.')
+    print('\n===========================================================')
+       
     
 # определение функции "удалить студента"  def delete_student()
 def delete_student(students_list):
