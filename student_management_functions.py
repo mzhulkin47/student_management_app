@@ -400,30 +400,68 @@ def find_student(students_list):
     
 # определение функции "удалить студента"  def delete_student()
 def delete_student(students_list):
+    '''
+    Удаление  всю информацию о студенте из БД
+    '''
     print('\n-------------------- УДАЛЕНИЕ СТУДЕНТА --------------------')
-    if not students_list:
-        print('Список студентов пуст, удалять некого.')
-        return
+    time.sleep(0.5)
+    print()
+    # Вывожу список всех студентов, чтобы пользователь знал ID студента для удаления
     view_students(students_list)
-    print('\nПожалуйста, используйте ID студента из списка выше для удаления.')
     
-    while True:
-        student_id_str = input('Введите *ID* студента для его удаления или *0* для выхода: ').strip()
-        if not student_id_str.isdigit():
-            print('\nОшибка: *ID* должен быть числом')
-            continue
-        student_id = int(student_id_str)
-        if student_id == 0:
-            print('Удаление отменено.')
-            return
-        index_to_delete = student_id - 1
-        if 0 <= index_to_delete < len(students_list):
-            deleted_student = students_list.pop(index_to_delete)
-            print(f'Студент: **{deleted_student.last_name} {deleted_student.first_name} {deleted_student.patronymic}** успешно удаленю')
-            break
-        else:
-            print(f'Ошибка: Студент с ID *{student_id}* не найден.')
-            print('Попробуйте еще раз.')
+    # Переменная для соединения и курсора
+    connection = None
+    cursor = None
+    
+    try:
+        # После показа списка студентов, запрашиваю ID студента для удаления
+        student_id = int(input('Введите ID студента для его удаления: '))
+    except ValueError:
+        print('Неверный ID: введите ID числом.')
+        time.sleep(0.5)
+        return # Возвращаемся в главное меню
+    
+    connection = get_db_connection()
+    
+    if connection:
+        try:
+            # если соединение удачное, то создаю курсор для SQL
+            cursor = connection.cursor()
+            # Проверяю, есть ли студент с таким  ID
+            check_query = "SELECT id, last_name, first_name FROM students WHERE id = %s;"
+            cursor.execute(check_query, (student_id,))
+            existing_student = cursor.fetchone() # Возвращает (id, фамилию, имя) или None, если нет такого student_id
+        
+            if not existing_student:
+                print(f'Студент с ID {student_id} не найден.')
+                time.sleep(0.5)
+                return # Возвращаемся, если студент не найден
+        
+            # ВАЖНО! Запрашиваю подтверждение на удаление.
+            confirm = input(f"Вы уверены, что хотите удалить студента: {existing_student[1]} {existing_student[2]}"
+                            f"(ID: {student_id})? (да/нет): ").lower().strip()
+        
+            # Если "ДА", то удаляем студента
+            if confirm == 'да':
+                # Выполняю SQL-запрос DELETE
+                delete_quere = "DELETE FROM students WHERE id = %s;"
+                cursor.execute(delete_quere, (student_id,))
+                connection.commit()  # Подтверждаю изменение
+                print(f"Студент с ID {student_id} успешно удален.")
+            else:
+                print("Удаление отменено.")
+            
+        except Error as e:
+            print(f"Ошибка при удалении студента: {e}")
+            connection.rollback() # Отактывает изменения назад в случае ошибки
+        finally:
+            if cursor:
+                cursor.close() # Закрываю курсор
+            if connection:
+                connection.close()
+                print("Соединение с БД закрыто.")
+    else:
+        print("Не удалось удалить студента: нет соединения с БД.")
     print('\n-----------------------------------------------------------')
     print()
     
