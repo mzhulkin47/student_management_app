@@ -1,5 +1,4 @@
 import time
-import json 
 import psycopg2 # Импортируем библиотеку для работы с PostGreSQL
 from psycopg2 import Error  # Импортируем класс Error для работы с ошибками
 from dotenv import load_dotenv # 
@@ -179,7 +178,7 @@ def get_valid_name(name_type):
         
         
 # определение функции добавить студента  add_student()
-def add_student(students_list):
+def add_student():
     '''
     Добавляем нового студента (фамилия, имя, отчество, возраст, курс)
     
@@ -286,7 +285,7 @@ def add_student(students_list):
     
  
 # определение функции вывода списка студентов
-def view_students(students_list): # "students_list" пока оставляю, но потом удалю(после полного перехода в PostgreSQL)
+def view_students(): # "students_list" пока оставляю, но потом удалю(после полного перехода в PostgreSQL)
     """
     Отображает список всех студентов, находящихся в системе, получая их из базы данных PostgreSQL.
     """
@@ -363,7 +362,7 @@ print()
     
     
 # определение функции "найти студента" def find_student()
-def find_student(students_list):
+def find_student():
     """
     Ищет и отображает информацию о студенте(ах) в базе данных PostgreSQL.
     Поиск может быть выполнен по ID или по части фамилии/имени/отчества.
@@ -445,7 +444,7 @@ def find_student(students_list):
        
     
 # определение функции "удалить студента"  def delete_student()
-def delete_student(students_list):
+def delete_student():
     '''
     Удаление  всю информацию о студенте из БД
     '''
@@ -453,7 +452,7 @@ def delete_student(students_list):
     time.sleep(0.5)
     print()
     # Вывожу список всех студентов, чтобы пользователь знал ID студента для удаления
-    view_students(students_list)
+    view_students()
     
     # Переменная для соединения и курсора
     connection = None
@@ -513,7 +512,7 @@ def delete_student(students_list):
     
     
 # определение функции "изменить студента"  def edit_student()
-def edit_student(students_list):  # Пока оставляю "student_list", потом удалю вообще
+def edit_student():  # Пока оставляю "student_list", потом удалю вообще
     """
     Редактирует информацию о существующем студенте в базе данных PostgreSQL.
     """
@@ -522,7 +521,7 @@ def edit_student(students_list):  # Пока оставляю "student_list", п
     print()
     # Показываю список студентов, чтобы пользователь видел ID студента
     # Чтобы пользователь мог по ID выбрать студента для редактирования
-    view_students(students_list)
+    view_students()
     
     # Переменные для соединения и курсора, инициализирую их как  None
     # Это хорошая практика, чтобы убедиться, что они всегда будут определенны,
@@ -649,92 +648,12 @@ def edit_student(students_list):  # Пока оставляю "student_list", п
     print("\n><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><")
     print()
 
-
-# Определение функции для сохранения списков студентов в файл JSON
-def save_students_to_file(students_list, filename = 'students.json'):
-    '''
-    Сохраняем список студентов в файл JSON
-    
-    Аргументы:
-        students_list (list) список словарей студентов.
-        filename (str) файл для сохранения словарей студентов в файл JSON.
-    '''
-    data_to_save = []
-    
-    for student_obj in students_list:
-        data_to_save.append({
-            'фамилия': student_obj.last_name,
-            'имя': student_obj.first_name,
-            'отчество': student_obj.patronymic,
-            'возраст': student_obj.age,
-            'курс': student_obj.course     
-        })
-
-    try:
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data_to_save, f, indent=4, ensure_ascii=False)
-        print(f'\nДанные успешно сохранены в файл: "{filename}"')
-    except IOError:
-        print(
-            f'\nОшибка: Не удалось сохранить данные в файл {filename}.'  
-            f'Проверьте права доступа или место на диске.'
-            )
-    except Exception as e:
-        print(f'\nПроизошла непредвиденная ошибка "{e}"')
-
-
-# Определение функции для загрузки списка студентов из файла JSON
-def load_students_from_file(filename = 'students.json'):
-    '''
-    Загружает список студентов из JSON-файла.
-    
-    Аргументы:
-        filename (str) файл из которого производим загрузку (students.json)
-    Возвращает:
-        list: список словарей, представляющий студентов или пустой список,
-        print(f'\nФайл данных "{filename}" не найден. Начинаем с пустого списка студентов.')
-        если файл не найден/поврежден
-    '''
-    try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            loaded_data = json.load(f)
-        students_objects = []
-        for student_dict in loaded_data:
-            students_objects.append(Student(
-                student_dict['фамилия'],
-                student_dict['имя'],
-                student_dict['отчество'],
-                student_dict['возраст'],
-                student_dict['курс'],
-            ))
-            
-        print(f'\nДанные студентов успешно загружены из файла "{filename}".')
-        return students_objects
-    except FileNotFoundError:
-        # Бывает при первом запуске программы
-        print(f'\nФайл данных "{filename}" не найден. Начинаем с пустого списка студентов.')
-        return [] # возвращает пустой список, если файла нет
-    except json.JSONDecodeError:
-        # Ловит ошибку, если файл сущетвует, но он не корректен (JSON)
-        print(
-            f'\nОшибка: файл "{filename}" поврежден или содержит некорректные данные.'
-            f'\nНачинаем с нового списка.'
-            )
-        return [] # Возвращаем пустой список, чтобы программа могла продолжить работать
-    except Exception as e:
-        # ловим любые другие ошибки, которые могут возникнуть
-        print(f'\nПроизошла непредвиденная ошибка "{e}".')
-        return [] # Возвращаем пустой список
-        
-        
    
 # определение главной функции main()
 def main():
     '''
     Главная функция программы, управляющая основным циклом меню и выбором действия пользователя
     '''
-    global students
-    students = load_students_from_file() # <<- Загружает данные при старте
     # здесь начинается главный цикл while True
     while True:
         display_menu() # вызываем функцию, которая теперь отображает меню
@@ -755,30 +674,29 @@ def main():
         # -------------------- выбор меню << 6 >> --------------------
         if menu_choice == 6:
             print('Вы вышли из программы.')
-            save_students_to_file(students) # Сохранение данных перед выходом 
             print('До свидания!')
             break # выход из пронраммы
         
         # -------------------- выбор меню << 1 >> --------------------
         elif menu_choice == 1:
             print('Вы выбрали пункт меню << 1 >>: "Добавить студента"')
-            add_student(students)
+            add_student()
         
         elif menu_choice == 2:
             print('Вы выбрали пункт меню << 2 >>: "Посмотреть список студентов"')
-            view_students(students) 
+            view_students() 
         
         elif menu_choice == 3:
             print('Вы выбрали пункт меню << 3 >>: "Найти студента по фамилии"')
-            find_student(students)
+            find_student()
         
         elif menu_choice == 4:
             print('Вы выбрали пункт меню << 4 >>: "Удалить студента из списка"')
-            delete_student(students)
+            delete_student()
         
         elif menu_choice == 5:
             print('Вы выбрали пункт меню << 5 >>: "Редактировать студента"')
-            edit_student(students)
+            edit_student()
             
             
 if __name__ == '__main__':
